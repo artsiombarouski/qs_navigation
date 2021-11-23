@@ -1,0 +1,20 @@
+name: qs_navigation
+description: QS Navigation
+version: 0.0.1
+homepage: '???'
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+  flutter: ">=1.20.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  url_strategy: ^0.2.0
+  path_to_regexp: ^0.4.0
+  universal_platform: ^1.0.0+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
