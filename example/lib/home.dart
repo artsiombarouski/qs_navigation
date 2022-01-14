@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:qs_navigation/nav.dart';
 
 class Home extends StatelessWidget {
@@ -14,12 +13,16 @@ class Home extends StatelessWidget {
       body: Column(
         children: [
           ElevatedButton(
-            onPressed: () => context.nav('/page1'),
+            onPressed: () => context.push('/page1'),
             child: const Text('To Page 1'),
           ),
           ElevatedButton(
-            onPressed: () => context.nav('/page2'),
+            onPressed: () => context.push('/page2'),
             child: const Text('To Page 2'),
+          ),
+          ElevatedButton(
+            onPressed: () => context.push('/nested_example'),
+            child: const Text('Nested example'),
           ),
         ],
       ),

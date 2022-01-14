@@ -6,3 +6,4 @@ export 'src/nav_delegate.dart';
 export 'src/nav_transition.dart';
 export 'src/nav_extensions.dart';
 export 'src/nav_guard.dart';
+export 'src/nav_nested_router.dart';

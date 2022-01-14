@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:qs_navigation/nav.dart';
 import 'package:qs_navigation_example/home.dart';
+import 'package:qs_navigation_example/nested_example.dart';
 import 'package:qs_navigation_example/page1.dart';
+import 'package:qs_navigation_example/page1_2.dart';
 import 'package:qs_navigation_example/page2.dart';
 import 'package:qs_navigation_example/page2guard.page.dart';
 
@@ -33,6 +35,13 @@ final routes = Nav(
       ),
     ),
     Nav(
+      name: 'Page1_2',
+      path: '/page1_2',
+      builder: (ctx) => const Page1_2(
+        key: ValueKey('page1_2'),
+      ),
+    ),
+    Nav(
       name: 'Page2Guard',
       path: '/page2guard',
       builder: (ctx) => const Page2GuardPage(
@@ -46,6 +55,11 @@ final routes = Nav(
       builder: (ctx) => const Page2(
         key: ValueKey('page2'),
       ),
+    ),
+    Nav(
+      name: 'NestedExample',
+      path: '/nested_example',
+      builder: (ctx) => const NestedExamplePage(),
     ),
   ],
 );

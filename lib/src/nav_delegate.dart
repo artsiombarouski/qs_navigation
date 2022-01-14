@@ -1,33 +1,31 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:path_to_regexp/path_to_regexp.dart';
-import 'package:qs_navigation/src/nav_page.dart';
-import 'package:universal_platform/universal_platform.dart';
 
 import 'nav.dart';
 import 'nav_extended_page.dart';
-
-final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-final _heroController = HeroController();
-List<NavExtendedPage> _pages = [];
 
 /// Put this as your routerDelegate in [MaterialApp.router].
 
 class NavDelegate extends RouterDelegate<String>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
+  final _heroController = HeroController();
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
   //TODO: not a good idea to store context
   final BuildContext _context;
+
   final Nav _nav;
   final bool alwaysIncludeHome;
 
-  Map<String, String> _queryParams = {};
+  final List<NavigatorObserver> observers;
+
   Map<String, String> _params = {};
+  Map<String, String> _queryParams = {};
+  List<NavExtendedPage> _currentPages = [];
 
   Map<String, String> get params => Map.unmodifiable(_params);
 
   Map<String, String> get queryParams => Map.unmodifiable(_queryParams);
-
-  final List<NavigatorObserver> observers;
 
   NavDelegate({
     required BuildContext context,
@@ -39,73 +37,177 @@ class NavDelegate extends RouterDelegate<String>
     this.nav(currentConfiguration);
   }
 
-  static Widget _makeChild(Nav node) {
-    return Builder(builder: node.builder!);
-  }
-
-  static NavExtendedPage _makePage(String path, Nav node,
-      [bool uniqueKey = false]) {
-    final child = _makeChild(node);
-    return NavExtendedPage(
-      page: node.transition.when(
-        adaptive: () => (UniversalPlatform.isIOS || UniversalPlatform.isMacOS)
-            ? CupertinoPage(
-                name: node.name ?? path,
-                key: uniqueKey ? UniqueKey() : ValueKey(path),
-                child: child,
-                fullscreenDialog: node.fullscreenDialog,
-                maintainState: node.maintainState,
-              )
-            : MaterialPage(
-                name: node.name ?? path,
-                key: uniqueKey ? UniqueKey() : ValueKey(path),
-                child: child,
-                fullscreenDialog: node.fullscreenDialog,
-                maintainState: node.maintainState,
-              ),
-        material: () => MaterialPage(
-          name: node.name ?? path,
-          key: uniqueKey ? UniqueKey() : ValueKey(path),
-          child: child,
-          fullscreenDialog: node.fullscreenDialog,
-          maintainState: node.maintainState,
-        ),
-        cupertino: () => CupertinoPage(
-          name: node.name ?? path,
-          key: uniqueKey ? UniqueKey() : ValueKey(path),
-          child: child,
-          fullscreenDialog: node.fullscreenDialog,
-          maintainState: node.maintainState,
-        ),
-        custom: (
-          transitionsBuilder,
-          opaque,
-          barrierDismissible,
-          reverseTransitionDuration,
-          transitionDuration,
-          barrierColor,
-          barrierLabel,
-        ) =>
-            NavPage(
-          name: node.name ?? path,
-          key: uniqueKey ? UniqueKey() : ValueKey(path),
-          transitionsBuilder: transitionsBuilder,
-          fullscreenDialog: node.fullscreenDialog,
-          maintainState: node.maintainState,
-          opaque: opaque,
-          barrierDismissible: barrierDismissible,
-          reverseTransitionDuration: reverseTransitionDuration,
-          transitionDuration: transitionDuration,
-          barrierColor: barrierColor,
-          barrierLabel: barrierLabel,
-          child: child,
-        ),
-      ),
-      path: path,
+  @override
+  Widget build(Object context) {
+    if (_currentPages.isEmpty) {
+      return Container();
+    }
+    return Navigator(
+      key: _navigatorKey,
+      pages: _currentPages.map((e) => e.page).toList(),
+      observers: [_heroController, ...observers],
+      onPopPage: (route, result) {
+        if (!route.didPop(result)) {
+          return false;
+        }
+        nav();
+        return true;
+      },
     );
   }
 
-  List<NavExtendedPage>? _dfs(
+  /// Navigates to another path. If no arguments are given, it pops the top page.
+  void nav([String? path]) {
+    _params = {};
+    _queryParams = {};
+    if (path == null) {
+      if (_currentPages.length == 1) {
+        return;
+      }
+      _currentPages.removeLast();
+      notifyListeners();
+      return;
+    }
+    final uri = Uri.parse(path);
+    _queryParams = uri.queryParameters;
+    if (path.startsWith('/')) {
+      _currentPages = _buildPageStack(_nav, uri.path, 0)!;
+      _ensureHomePage();
+      notifyListeners();
+    } else {
+      final location = Uri.parse(currentConfiguration).path;
+      nav(location + (location != '/' ? '/' : '') + path);
+    }
+  }
+
+  void replaceCurrent(String path, {List<String>? skipGuards}) {
+    if (_currentPages.isEmpty) {
+      return;
+    }
+    _currentPages.removeLast();
+    return push(path, skipGuards: skipGuards);
+  }
+
+  void _ensureHomePage() {
+    if (!alwaysIncludeHome) {
+      return;
+    }
+    final homePage = _nav.children?.firstWhere((e) => e.isHomePage);
+    if (homePage == null || homePage.path == null) {
+      return;
+    }
+    final homePageUri = Uri.parse(homePage.path!);
+    if (_currentPages.isEmpty) {
+      _currentPages = _buildPageStack(_nav, homePageUri.path, 0)!;
+    } else if (_currentPages.length == 1) {
+      final firstPageUri = Uri.parse(_currentPages[0].path);
+      if (!_isHomePage(firstPageUri.path)) {
+        _currentPages = [
+          ..._buildPageStack(_nav, homePageUri.path, 0)!,
+          ..._currentPages,
+        ];
+      }
+    }
+  }
+
+  bool _isHomePage(String path) {
+    final homePages =
+        _nav.children?.where((e) => e.isHomePage && e.path != null);
+    final hasMatch = homePages?.any((e) => Uri.parse(e.path!).path == path);
+    return hasMatch ?? false;
+  }
+
+  /// Reorder or pages for bring page with provided to front or create new one
+  void navOnTop(String path) {
+    final uri = Uri.parse(path);
+    _queryParams = {..._queryParams, ...uri.queryParameters};
+    if (path.startsWith('/')) {
+      final newPages = _buildPageStack(_nav, uri.path, 0)!;
+      _currentPages = [
+        ..._currentPages,
+        ...newPages.where((element) =>
+            _currentPages.where((e) => e.path == element.path).isEmpty),
+      ];
+      notifyListeners();
+    } else {
+      final location = Uri.parse(currentConfiguration).path;
+      navOnTop(location + (location != '/' ? '/' : '') + path);
+    }
+  }
+
+  /// Add page on top of other
+  void push(String path, {List<String>? skipGuards}) {
+    final uri = Uri.parse(path);
+    _queryParams = {..._queryParams, ...uri.queryParameters};
+    if (path.startsWith('/')) {
+      final newPages =
+          _buildPageStack(_nav, uri.path, 0, true, skipGuards ?? [])!;
+      _currentPages = [
+        ..._currentPages,
+        newPages.last,
+      ];
+      notifyListeners();
+    } else {
+      final location = Uri.parse(currentConfiguration).path;
+      push(
+        location + (location != '/' ? '/' : '') + path,
+        skipGuards: skipGuards,
+      );
+    }
+  }
+
+  /// Pop to page in current stack, if not - nothing happen
+  bool popTo(String path) {
+    final uri = Uri.parse(path);
+    _queryParams = {..._queryParams, ...uri.queryParameters};
+    if (path.startsWith('/')) {
+      int index = _currentPages.indexWhere((element) => element.path == path);
+      if (index < 0) {
+        return false;
+      }
+      _currentPages = _currentPages.sublist(0, index + 1);
+      notifyListeners();
+      return true;
+    } else {
+      final location = Uri.parse(currentConfiguration).path;
+      return popTo(location + (location != '/' ? '/' : '') + path);
+    }
+  }
+
+  /// Change current page path
+  void changePath(String path) {
+    _currentPages[_currentPages.length - 1] =
+        _currentPages.last.copyWith(path: path);
+    notifyListeners();
+  }
+
+  @override
+  Future<bool> popRoute() {
+    return Future.sync(() {
+      if (_currentPages.length == 1) {
+        return false;
+      }
+      final targetPath = _currentPages[_currentPages.length - 2].path;
+      if (!popTo(targetPath)) {
+        nav(_currentPages[_currentPages.length - 2].path);
+      }
+      return true;
+    });
+  }
+
+  @override
+  Future<void> setNewRoutePath(String configuration) {
+    return Future.sync(() => nav(configuration));
+  }
+
+  @override
+  String get currentConfiguration =>
+      _currentPages.isNotEmpty ? _currentPages.last.path : '/';
+
+  @override
+  GlobalKey<NavigatorState>? get navigatorKey => _navigatorKey;
+
+  List<NavExtendedPage>? _buildPageStack(
     Nav node,
     String path,
     int matchedTill, [
@@ -139,11 +241,11 @@ class NavDelegate extends RouterDelegate<String>
                   ..._queryParams,
                   ...redirectUri.queryParameters
                 };
-                return _dfs(_nav, redirectUri.path, 0);
+                return _buildPageStack(_nav, redirectUri.path, 0);
               }
             }
           }
-          pages.add(_makePage(pagePath, node, uniqueKey));
+          pages.add(NavExtendedPage.forNode(path, node, uniqueKey));
         }
         if (isFinal) {
           // The matching is final.
@@ -162,7 +264,7 @@ class NavDelegate extends RouterDelegate<String>
       for (int childIndex = 0;
           childIndex < node.children!.length;
           ++childIndex) {
-        final childList = _dfs(
+        final childList = _buildPageStack(
           node.children![childIndex],
           path,
           matchedTill,
@@ -179,176 +281,4 @@ class NavDelegate extends RouterDelegate<String>
     // No match found in this subtree.
     return null;
   }
-
-  @override
-  Widget build(Object context) {
-    if (_pages.isNotEmpty) {
-      return Navigator(
-        key: _navigatorKey,
-        pages: _pages.map((e) => e.page).toList(),
-        observers: [_heroController, ...observers],
-        onPopPage: (route, result) {
-          nav();
-          return false;
-        },
-      );
-    }
-    return Container();
-  }
-
-  /// Navigates to another path. If no arguments are given, it pops the top page.
-  void nav([String? path]) {
-    _params = {};
-    _queryParams = {};
-    if (path == null) {
-      if (_pages.length == 1) {
-        return;
-      }
-      _pages.removeLast();
-      notifyListeners();
-      return;
-    }
-    final uri = Uri.parse(path);
-    _queryParams = uri.queryParameters;
-    if (path.startsWith('/')) {
-      _pages = _dfs(_nav, uri.path, 0)!;
-      _ensureHomePage();
-      notifyListeners();
-    } else {
-      final location = Uri.parse(currentConfiguration).path;
-      nav(location + (location != '/' ? '/' : '') + path);
-    }
-  }
-
-  void replaceCurrent(String path, {List<String>? skipGuards}) {
-    if (_pages.isEmpty) {
-      return;
-    }
-    _pages.removeLast();
-    return push(path, skipGuards: skipGuards);
-  }
-
-  void _ensureHomePage() {
-    if (!alwaysIncludeHome) {
-      return;
-    }
-    final homePage = _nav.children?.firstWhere((e) => e.isHomePage);
-    if (homePage == null || homePage.path == null) {
-      return;
-    }
-    final homePageUri = Uri.parse(homePage.path!);
-    if (_pages.isEmpty) {
-      _pages = _dfs(_nav, homePageUri.path, 0)!;
-    } else if (_pages.length == 1) {
-      final firstPageUri = Uri.parse(_pages[0].path);
-      if (!_isHomePage(firstPageUri.path)) {
-        _pages = [
-          ..._dfs(_nav, homePageUri.path, 0)!,
-          ..._pages,
-        ];
-      }
-    }
-  }
-
-  bool _isHomePage(String path) {
-    final homePages =
-        _nav.children?.where((e) => e.isHomePage && e.path != null);
-    final hasMatch = homePages?.any((e) => Uri.parse(e.path!).path == path);
-    return hasMatch ?? false;
-  }
-
-  void navOnTop(String path) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
-    if (path.startsWith('/')) {
-      final newPages = _dfs(
-        _nav,
-        uri.path,
-        0,
-      )!;
-      _pages = [
-        ..._pages,
-        ...newPages.where(
-            (element) => _pages.where((e) => e.path == element.path).isEmpty),
-      ];
-      notifyListeners();
-    } else {
-      final location = Uri.parse(currentConfiguration).path;
-      navOnTop(location + (location != '/' ? '/' : '') + path);
-    }
-  }
-
-  void push(String path, {List<String>? skipGuards}) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
-    if (path.startsWith('/')) {
-      final newPages = _dfs(
-        _nav,
-        uri.path,
-        0,
-        true,
-        skipGuards ?? [],
-      )!;
-      _pages = [
-        ..._pages,
-        newPages.last,
-      ];
-      notifyListeners();
-    } else {
-      final location = Uri.parse(currentConfiguration).path;
-      push(
-        location + (location != '/' ? '/' : '') + path,
-        skipGuards: skipGuards,
-      );
-    }
-  }
-
-  bool popTo(String path) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
-    if (path.startsWith('/')) {
-      int index = _pages.indexWhere((element) => element.path == path);
-      if (index < 0) {
-        return false;
-      }
-      _pages = _pages.sublist(0, index + 1);
-      notifyListeners();
-      return true;
-    } else {
-      final location = Uri.parse(currentConfiguration).path;
-      return popTo(location + (location != '/' ? '/' : '') + path);
-    }
-  }
-
-  void changePath(String path) {
-    _pages[_pages.length - 1] = _pages.last.copyWith(path: path);
-    notifyListeners();
-  }
-
-  @override
-  Future<bool> popRoute() async {
-    return Future.sync(() {
-      if (_pages.length == 1) {
-        return false;
-      }
-      final targetPath = _pages[_pages.length - 2].path;
-      if (!popTo(targetPath)) {
-        nav(_pages[_pages.length - 2].path);
-      }
-      return true;
-    });
-  }
-
-  @override
-  Future<void> setNewRoutePath(String path) {
-    return Future.sync(() {
-      nav(path);
-    });
-  }
-
-  @override
-  String get currentConfiguration => _pages.isNotEmpty ? _pages.last.path : '/';
-
-  @override
-  GlobalKey<NavigatorState>? get navigatorKey => _navigatorKey;
 }

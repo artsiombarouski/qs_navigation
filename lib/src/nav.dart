@@ -88,8 +88,8 @@ class Nav {
   }
 
   @override
-  bool operator ==(Object o) {
-    return o is Nav && hashCode == o.hashCode;
+  bool operator ==(Object other) {
+    return other is Nav && hashCode == other.hashCode;
   }
 
   @override

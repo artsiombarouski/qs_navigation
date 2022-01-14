@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:qs_navigation/nav.dart';
 
 class Page1 extends StatelessWidget {
   const Page1({Key? key}) : super(key: key);
@@ -10,8 +10,19 @@ class Page1 extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Page1'),
       ),
-      body: const Center(
-        child: Text("page1"),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("page1"),
+            ElevatedButton(
+              onPressed: () {
+                context.push('/page1_2');
+              },
+              child: const Text('To Page 1_2'),
+            ),
+          ],
+        ),
       ),
     );
   }
