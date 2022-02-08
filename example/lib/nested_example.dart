@@ -65,7 +65,7 @@ class _RootPage extends StatelessWidget {
           const Text("Nested Root page"),
           ElevatedButton(
             onPressed: () {
-              context.nav('/nested_page');
+              context.push('/nested_page');
             },
             child: const Text("To Second nested page"),
           ),
@@ -80,9 +80,17 @@ class _NestedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Nested child page'),
+    return Scaffold(
+      body: Column(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text('Nested child page'),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Pop back'),
+          ),
+        ],
       ),
     );
   }

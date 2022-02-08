@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:path_to_regexp/path_to_regexp.dart';
 
@@ -19,13 +20,12 @@ class NavDelegate extends RouterDelegate<String>
 
   final List<NavigatorObserver> observers;
 
-  Map<String, String> _params = {};
-  Map<String, String> _queryParams = {};
   List<NavExtendedPage> _currentPages = [];
 
-  Map<String, String> get params => Map.unmodifiable(_params);
+  Map<String, String> get params => _currentPages.lastOrNull?.params ?? {};
 
-  Map<String, String> get queryParams => Map.unmodifiable(_queryParams);
+  Map<String, String> get queryParams =>
+      _currentPages.lastOrNull?.queryParams ?? {};
 
   NavDelegate({
     required BuildContext context,
@@ -58,8 +58,6 @@ class NavDelegate extends RouterDelegate<String>
 
   /// Navigates to another path. If no arguments are given, it pops the top page.
   void nav([String? path]) {
-    _params = {};
-    _queryParams = {};
     if (path == null) {
       if (_currentPages.length == 1) {
         return;
@@ -68,11 +66,9 @@ class NavDelegate extends RouterDelegate<String>
       notifyListeners();
       return;
     }
-    final uri = Uri.parse(path);
-    _queryParams = uri.queryParameters;
     if (path.startsWith('/')) {
-      _currentPages = _buildPageStack(_nav, uri.path, 0)!;
-      _ensureHomePage();
+      _currentPages = _buildPageStack(_nav, path, 0)!;
+      // _ensureHomePage();
       notifyListeners();
     } else {
       final location = Uri.parse(currentConfiguration).path;
@@ -119,10 +115,8 @@ class NavDelegate extends RouterDelegate<String>
 
   /// Reorder or pages for bring page with provided to front or create new one
   void navOnTop(String path) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
     if (path.startsWith('/')) {
-      final newPages = _buildPageStack(_nav, uri.path, 0)!;
+      final newPages = _buildPageStack(_nav, path, 0)!;
       _currentPages = [
         ..._currentPages,
         ...newPages.where((element) =>
@@ -137,15 +131,9 @@ class NavDelegate extends RouterDelegate<String>
 
   /// Add page on top of other
   void push(String path, {List<String>? skipGuards}) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
     if (path.startsWith('/')) {
-      final newPages =
-          _buildPageStack(_nav, uri.path, 0, true, skipGuards ?? [])!;
-      _currentPages = [
-        ..._currentPages,
-        newPages.last,
-      ];
+      final newPages = _buildPageStack(_nav, path, 0, true, skipGuards ?? [])!;
+      _currentPages = [..._currentPages, newPages.last];
       notifyListeners();
     } else {
       final location = Uri.parse(currentConfiguration).path;
@@ -158,8 +146,6 @@ class NavDelegate extends RouterDelegate<String>
 
   /// Pop to page in current stack, if not - nothing happen
   bool popTo(String path) {
-    final uri = Uri.parse(path);
-    _queryParams = {..._queryParams, ...uri.queryParameters};
     if (path.startsWith('/')) {
       int index = _currentPages.indexWhere((element) => element.path == path);
       if (index < 0) {
@@ -209,51 +195,47 @@ class NavDelegate extends RouterDelegate<String>
 
   List<NavExtendedPage>? _buildPageStack(
     Nav node,
-    String path,
+    String originPath,
     int matchedTill, [
     bool uniqueKey = false,
     List<String> skipGuards = const [],
   ]) {
+    final uri = Uri.parse(originPath);
     final pages = <NavExtendedPage>[];
     if (node.regExp != null) {
       // Handling relative and non-relative paths correctly
       final isRootPath = node.path!.startsWith('/');
       if (isRootPath) matchedTill = 0;
-      final match = node.regExp!.matchAsPrefix(path.substring(matchedTill));
+      final match = node.regExp!.matchAsPrefix(uri.path.substring(matchedTill));
       if (match != null) {
-        final isFinal = matchedTill + match.end == path.length;
-        _params.addAll(extract(node.parameters, match));
-        if (node.builder != null) {
-          final queryPath = Uri(queryParameters: _queryParams).query;
-          final pagePath = path.substring(0, matchedTill + match.end) +
-              (isFinal && queryPath.isNotEmpty ? '?$queryPath' : '');
-          //TODO: not tested well
-          if (node.guards != null) {
-            for (final guard in node.guards!) {
-              if (!skipGuards.contains(guard.key) &&
-                  guard.runner(_context, pagePath)) {
-                final originPath =
-                    Uri(path: path, queryParameters: _queryParams);
-                final redirect =
-                    guard.redirect(_context, originPath.toString());
-                final redirectUri = Uri.parse(redirect);
-                _queryParams = {
-                  ..._queryParams,
-                  ...redirectUri.queryParameters
-                };
-                return _buildPageStack(_nav, redirectUri.path, 0);
-              }
+        final isFinal = matchedTill + match.end == uri.path.length;
+        final params = extract(node.parameters, match);
+        if (node.guards != null) {
+          for (final guard in node.guards!) {
+            if (!skipGuards.contains(guard.key) &&
+                guard.apply(_context, originPath)) {
+              final redirect = guard.redirect(_context, originPath);
+              return _buildPageStack(
+                  _nav, redirect, 0, uniqueKey, [...skipGuards, guard.key]);
             }
           }
-          pages.add(NavExtendedPage.forNode(path, node, uniqueKey));
+        }
+        if (node.builder != null) {
+          pages.add(NavExtendedPage.forNode(
+            path: originPath,
+            node: node,
+            uniqueKey: uniqueKey,
+            params: params,
+            queryParams: uri.queryParameters,
+          ));
         }
         if (isFinal) {
           // The matching is final.
           return pages;
         }
-        if (path[matchedTill + match.end - 1] == '/') {
+        if (uri.path[matchedTill + match.end - 1] == '/') {
           matchedTill += match.end;
-        } else if (path[matchedTill + match.end] == '/') {
+        } else if (uri.path[matchedTill + match.end] == '/') {
           matchedTill += match.end + 1;
         } else {
           matchedTill = 0;
@@ -264,13 +246,8 @@ class NavDelegate extends RouterDelegate<String>
       for (int childIndex = 0;
           childIndex < node.children!.length;
           ++childIndex) {
-        final childList = _buildPageStack(
-          node.children![childIndex],
-          path,
-          matchedTill,
-          uniqueKey,
-          skipGuards,
-        );
+        final childList = _buildPageStack(node.children![childIndex],
+            originPath, matchedTill, uniqueKey, skipGuards);
         if (childList != null) {
           // We found a match, we can return.
           pages.addAll(childList);

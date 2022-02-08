@@ -7,10 +7,14 @@ import 'package:universal_platform/universal_platform.dart';
 class NavExtendedPage {
   final Page<dynamic> page;
   final String path;
+  final Map<String, String> params;
+  final Map<String, String> queryParams;
 
   const NavExtendedPage({
     required this.page,
     required this.path,
+    this.params = const {},
+    this.queryParams = const {},
   });
 
   @override
@@ -27,18 +31,24 @@ class NavExtendedPage {
   NavExtendedPage copyWith({
     Page<dynamic>? page,
     String? path,
+    Map<String, String>? params,
+    Map<String, String>? queryParams,
   }) {
     return NavExtendedPage(
       page: page ?? this.page,
       path: path ?? this.path,
+      params: params ?? this.params,
+      queryParams: queryParams ?? this.queryParams,
     );
   }
 
-  factory NavExtendedPage.forNode(
-    String path,
-    Nav node, [
+  factory NavExtendedPage.forNode({
+    required String path,
+    required Nav node,
     bool uniqueKey = false,
-  ]) {
+    Map<String, String> params = const {},
+    Map<String, String> queryParams = const {},
+  }) {
     final child = Builder(builder: node.builder!);
     return NavExtendedPage(
       page: node.transition.when(
@@ -96,6 +106,8 @@ class NavExtendedPage {
         ),
       ),
       path: path,
+      params: params,
+      queryParams: queryParams,
     );
   }
 }

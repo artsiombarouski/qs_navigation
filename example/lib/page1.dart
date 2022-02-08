@@ -17,7 +17,7 @@ class Page1 extends StatelessWidget {
             const Text("page1"),
             ElevatedButton(
               onPressed: () {
-                context.push('/page1_2');
+                context.push('/page1_2?param1=p1&param2=p2');
               },
               child: const Text('To Page 1_2'),
             ),
