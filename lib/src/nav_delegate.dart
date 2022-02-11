@@ -1,7 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:path_to_regexp/path_to_regexp.dart';
-import 'package:qs_navigation/src/nav_pop_scope.dart';
 
 import 'nav.dart';
 import 'nav_extended_page.dart';
@@ -12,8 +11,6 @@ class NavDelegate extends RouterDelegate<String>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
   final _heroController = HeroController();
   final _navigatorKey = GlobalKey<NavigatorState>();
-
-  final List<NavPopCallback> _navPopCallbacks = <NavPopCallback>[];
 
   //TODO: not a good idea to store context
   final BuildContext _context;
@@ -142,34 +139,16 @@ class NavDelegate extends RouterDelegate<String>
 
   @override
   Future<bool> popRoute() async {
-    if (_navPopCallbacks.isNotEmpty) {
-      for (final NavPopCallback callback in _navPopCallbacks.reversed) {
-        if (await callback() != true) {
-          return true;
-        }
-      }
-    }
-    if (_currentPages.length == 1) {
+    if (_currentPages.length == 1 || navigatorKey?.currentState == null) {
       return false;
     }
-    final targetPath = _currentPages[_currentPages.length - 2].path;
-    if (!popTo(targetPath)) {
-      nav(_currentPages[_currentPages.length - 2].path);
-    }
-    return true;
+    final popped = await navigatorKey!.currentState!.maybePop();
+    return popped;
   }
 
   @override
   Future<void> setNewRoutePath(String configuration) {
     return Future.sync(() => nav(configuration));
-  }
-
-  void addNavPopCallback(NavPopCallback callback) {
-    _navPopCallbacks.add(callback);
-  }
-
-  void removeNavPopCallback(NavPopCallback callback) {
-    _navPopCallbacks.remove(callback);
   }
 
   @override

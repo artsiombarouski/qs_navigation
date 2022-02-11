@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:qs_navigation/nav.dart';
 
 typedef NavPopCallback = Future<bool> Function();
 
@@ -17,29 +16,79 @@ class NavPopScope extends StatefulWidget {
   _NavPopScopeState createState() => _NavPopScopeState();
 }
 
+class PopDelegate {
+  static final Map<ModalRoute<dynamic>, PopDelegate> _cache = {};
+
+  static PopDelegate of(BuildContext context) {
+    final route = ModalRoute.of<dynamic>(context)!;
+    PopDelegate? delegate = _cache[route];
+    if (delegate == null) {
+      delegate = PopDelegate(route);
+      _cache[route] = delegate;
+    }
+    return delegate;
+  }
+
+  final ModalRoute route;
+  final List<WillPopCallback> _callbacks = [];
+
+  PopDelegate(this.route);
+
+  Future<bool> willPop() async {
+    for (final WillPopCallback callback
+        in List<WillPopCallback>.of(_callbacks).reversed) {
+      if (await callback() != true) return false;
+    }
+    return true;
+  }
+
+  void addCallback(WillPopCallback callback) {
+    _callbacks.remove(callback);
+    _callbacks.add(callback);
+    attach();
+  }
+
+  void removeCallback(WillPopCallback callback) {
+    _callbacks.remove(callback);
+    if (_callbacks.isEmpty) {
+      detach();
+    }
+  }
+
+  void attach() {
+    route.removeScopedWillPopCallback(willPop);
+    route.addScopedWillPopCallback(willPop);
+  }
+
+  void detach() {
+    route.removeScopedWillPopCallback(willPop);
+    _cache.remove(route);
+  }
+}
+
 class _NavPopScopeState extends State<NavPopScope> {
-  NavDelegate? _delegate;
+  PopDelegate? _popDelegate;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _delegate?.removeNavPopCallback(widget.onWillPop);
-    _delegate = Nav.of(context);
-    _delegate?.addNavPopCallback(widget.onWillPop);
+    _popDelegate?.removeCallback(widget.onWillPop);
+    _popDelegate = PopDelegate.of(context);
+    _popDelegate!.addCallback(widget.onWillPop);
   }
 
   @override
   void didUpdateWidget(covariant NavPopScope oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.onWillPop != oldWidget.onWillPop && _delegate != null) {
-      _delegate!.removeNavPopCallback(oldWidget.onWillPop);
-      _delegate!.addNavPopCallback(widget.onWillPop);
+    if (widget.onWillPop != oldWidget.onWillPop && _popDelegate != null) {
+      _popDelegate!.removeCallback(oldWidget.onWillPop);
+      _popDelegate!.addCallback(widget.onWillPop);
     }
   }
 
   @override
   void dispose() {
-    _delegate?.removeNavPopCallback(widget.onWillPop);
+    _popDelegate?.removeCallback(widget.onWillPop);
     super.dispose();
   }
 

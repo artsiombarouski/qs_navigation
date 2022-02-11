@@ -43,7 +43,16 @@ class _InnerPop extends StatelessWidget {
     return NavPopScope(
       child: Container(
         alignment: Alignment.center,
-        child: const Text("NavPopScope example"),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("NavPopScope example"),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              child: const Text('Pop back'),
+            ),
+          ],
+        ),
       ),
       onWillPop: () async {
         final dialogResult = await showDialog(

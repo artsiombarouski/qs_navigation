@@ -14,7 +14,7 @@ class NavPage extends Page<dynamic> {
   final RouteTransitionsBuilder transitionsBuilder;
   final Widget child;
 
-  NavPage({
+  const NavPage({
     String? name,
     LocalKey? key,
     this.maintainState = true,
