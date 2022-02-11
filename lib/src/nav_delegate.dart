@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:path_to_regexp/path_to_regexp.dart';
+import 'package:qs_navigation/src/nav_pop_scope.dart';
 
 import 'nav.dart';
 import 'nav_extended_page.dart';
@@ -11,6 +12,8 @@ class NavDelegate extends RouterDelegate<String>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
   final _heroController = HeroController();
   final _navigatorKey = GlobalKey<NavigatorState>();
+
+  final List<NavPopCallback> _navPopCallbacks = <NavPopCallback>[];
 
   //TODO: not a good idea to store context
   final BuildContext _context;
@@ -68,7 +71,6 @@ class NavDelegate extends RouterDelegate<String>
     }
     if (path.startsWith('/')) {
       _currentPages = _buildPageStack(_nav, path, 0)!;
-      // _ensureHomePage();
       notifyListeners();
     } else {
       final location = Uri.parse(currentConfiguration).path;
@@ -82,35 +84,6 @@ class NavDelegate extends RouterDelegate<String>
     }
     _currentPages.removeLast();
     return push(path, skipGuards: skipGuards);
-  }
-
-  void _ensureHomePage() {
-    if (!alwaysIncludeHome) {
-      return;
-    }
-    final homePage = _nav.children?.firstWhere((e) => e.isHomePage);
-    if (homePage == null || homePage.path == null) {
-      return;
-    }
-    final homePageUri = Uri.parse(homePage.path!);
-    if (_currentPages.isEmpty) {
-      _currentPages = _buildPageStack(_nav, homePageUri.path, 0)!;
-    } else if (_currentPages.length == 1) {
-      final firstPageUri = Uri.parse(_currentPages[0].path);
-      if (!_isHomePage(firstPageUri.path)) {
-        _currentPages = [
-          ..._buildPageStack(_nav, homePageUri.path, 0)!,
-          ..._currentPages,
-        ];
-      }
-    }
-  }
-
-  bool _isHomePage(String path) {
-    final homePages =
-        _nav.children?.where((e) => e.isHomePage && e.path != null);
-    final hasMatch = homePages?.any((e) => Uri.parse(e.path!).path == path);
-    return hasMatch ?? false;
   }
 
   /// Reorder or pages for bring page with provided to front or create new one
@@ -168,22 +141,35 @@ class NavDelegate extends RouterDelegate<String>
   }
 
   @override
-  Future<bool> popRoute() {
-    return Future.sync(() {
-      if (_currentPages.length == 1) {
-        return false;
+  Future<bool> popRoute() async {
+    if (_navPopCallbacks.isNotEmpty) {
+      for (final NavPopCallback callback in _navPopCallbacks.reversed) {
+        if (await callback() != true) {
+          return true;
+        }
       }
-      final targetPath = _currentPages[_currentPages.length - 2].path;
-      if (!popTo(targetPath)) {
-        nav(_currentPages[_currentPages.length - 2].path);
-      }
-      return true;
-    });
+    }
+    if (_currentPages.length == 1) {
+      return false;
+    }
+    final targetPath = _currentPages[_currentPages.length - 2].path;
+    if (!popTo(targetPath)) {
+      nav(_currentPages[_currentPages.length - 2].path);
+    }
+    return true;
   }
 
   @override
   Future<void> setNewRoutePath(String configuration) {
     return Future.sync(() => nav(configuration));
+  }
+
+  void addNavPopCallback(NavPopCallback callback) {
+    _navPopCallbacks.add(callback);
+  }
+
+  void removeNavPopCallback(NavPopCallback callback) {
+    _navPopCallbacks.remove(callback);
   }
 
   @override

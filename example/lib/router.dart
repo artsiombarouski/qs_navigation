@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:qs_navigation/nav.dart';
 import 'package:qs_navigation_example/home.dart';
 import 'package:qs_navigation_example/initial_guard.page.dart';
+import 'package:qs_navigation_example/nav_pop_example.dart';
 import 'package:qs_navigation_example/nested_example.dart';
 import 'package:qs_navigation_example/page1.dart';
 import 'package:qs_navigation_example/page1_2.dart';
@@ -101,6 +102,11 @@ final routes = Nav(
       name: 'NestedExample',
       path: '/nested_example',
       builder: (ctx) => const NestedExamplePage(),
+    ),
+    Nav(
+      name: 'PopExample',
+      path: '/pop_example',
+      builder: (ctx) => const NavPopExample(),
     ),
   ],
 );
