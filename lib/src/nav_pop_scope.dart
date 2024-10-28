@@ -13,7 +13,7 @@ class NavPopScope extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _NavPopScopeState createState() => _NavPopScopeState();
+  NavPopScopeState createState() => NavPopScopeState();
 }
 
 class PopDelegate {
@@ -66,7 +66,7 @@ class PopDelegate {
   }
 }
 
-class _NavPopScopeState extends State<NavPopScope> {
+class NavPopScopeState extends State<NavPopScope> {
   PopDelegate? _popDelegate;
 
   @override

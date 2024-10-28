@@ -26,10 +26,10 @@ class NavNestedRouter<T> extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _NavNestedRouterState<T> createState() => _NavNestedRouterState<T>();
+  NavNestedRouterState<T> createState() => NavNestedRouterState<T>();
 }
 
-class _NavNestedRouterState<T> extends State<NavNestedRouter<T>> {
+class NavNestedRouterState<T> extends State<NavNestedRouter<T>> {
   @override
   Widget build(BuildContext context) {
     return Router<T>(

@@ -1,6 +1,6 @@
 name: qs_navigation
 description: QS Navigation
-version: 0.0.5
+version: 0.0.6
 homepage: 'https://github.com/artsiombarouski/qs_navigation.git'
 
 environment:
@@ -10,11 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  url_strategy: ^0.2.0
+  url_strategy: ^0.3.0
   path_to_regexp: ^0.4.0
-  universal_platform: ^1.0.0+1
+  universal_platform: ^1.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^1.0.0
+  flutter_lints: ^5.0.0

@@ -8,6 +8,6 @@ class NavInformationParser extends RouteInformationParser<String> {
       SynchronousFuture(routeInformation.location ?? '/');
 
   @override
-  RouteInformation? restoreRouteInformation(String location) =>
-      RouteInformation(location: location);
+  RouteInformation? restoreRouteInformation(String configuration) =>
+      RouteInformation(location: configuration);
 }

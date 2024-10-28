@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 
-enum _NavTransitionType {
+enum NavTransitionType {
   adaptive,
   material,
-  cupertion,
+  cupertino,
   custom,
 }
 
 class NavTransition {
-  final _NavTransitionType type;
+  final NavTransitionType type;
   final RouteTransitionsBuilder? transitionsBuilder;
   final bool opaque;
   final bool barrierDismissible;
@@ -28,11 +28,11 @@ class NavTransition {
     this.barrierLabel,
   });
 
-  static const adaptive = NavTransition._(type: _NavTransitionType.adaptive);
+  static const adaptive = NavTransition._(type: NavTransitionType.adaptive);
 
-  static const material = NavTransition._(type: _NavTransitionType.material);
+  static const material = NavTransition._(type: NavTransitionType.material);
 
-  static const cupertion = NavTransition._(type: _NavTransitionType.cupertion);
+  static const cupertino = NavTransition._(type: NavTransitionType.cupertino);
 
   factory NavTransition.custom({
     required RouteTransitionsBuilder transitionsBuilder,
@@ -44,7 +44,7 @@ class NavTransition {
     String? barrierLabel,
   }) =>
       NavTransition._(
-        type: _NavTransitionType.custom,
+        type: NavTransitionType.custom,
         transitionsBuilder: transitionsBuilder,
         opaque: opaque,
         barrierDismissible: barrierDismissible,
@@ -69,13 +69,13 @@ class NavTransition {
         custom,
   }) {
     switch (type) {
-      case _NavTransitionType.adaptive:
+      case NavTransitionType.adaptive:
         return adaptive();
-      case _NavTransitionType.material:
+      case NavTransitionType.material:
         return material();
-      case _NavTransitionType.cupertion:
+      case NavTransitionType.cupertino:
         return cupertino();
-      case _NavTransitionType.custom:
+      case NavTransitionType.custom:
         return custom(
           transitionsBuilder!,
           opaque,
